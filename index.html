@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Counseling Simulator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+            20%, 40%, 60%, 80% { transform: translateX(5px); }
+        }
+        .animate-shake {
+            animation: shake 0.4s ease-in-out;
+        }
+        @keyframes bounce-delay {
+            0%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-5px); }
+        }
+        .typing-dot {
+            animation: bounce-delay 1.4s infinite ease-in-out both;
+        }
+        .typing-dot:nth-child(1) { animation-delay: -0.32s; }
+        .typing-dot:nth-child(2) { animation-delay: -0.16s; }
+        
+        .fade-in {
+            animation: fadeIn 0.3s ease-out forwards;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Hide scrollbar for cleaner look */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 font-sans overflow-hidden">
+
+    <div id="app" class="flex flex-col items-center justify-center min-h-screen p-2 md:p-4">
+        <!-- Game Content Will Be Injected Here -->
+    </div>
+
+    <script>
+        // --- SVGs (Replacing Lucide Icons) ---
+        const Icons = {
+            User: `<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>`,
+            CheckCircle: `<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>`,
+            CheckCircleLarge: `<svg class="w-6 h-6 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>`,
+            AlertTriangle: `<svg class="w-6 h-6 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>`,
+            Send: `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg>`,
+            Frown: `<svg class="w-12 h-12 text-red-500 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 11.25v.01M15 11.25v.01M12 18.75c-2.485 0-4.5-1.567-4.5-3.5S9.515 11.75 12 11.75s4.5 1.567 4.5 3.5-2.015 3.5-4.5 3.5zM21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>`,
+            RotateCcw: `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"></path></svg>`,
+            RotateCcwSmall: `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"></path></svg>`,
+            BookOpen: `<svg class="w-8 h-8 text-green-600 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>`,
+            Smile: `<svg class="w-20 h-20 text-green-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>`
+        };
+
+        // --- Data ---
+        const MOODS = ['😭', '😟', '😐', '🙂', '😄'];
+        const SCENARIOS = [
+            {
+                name: "Tom",
+                theme: "Exam Stress 📚",
+                badEnding: "Tom is crying! He feels more stressed because of your words.",
+                stages: [
+                    {
+                        npc: "I have a big exam tomorrow. I am very scared! 😭",
+                        options: [
+                            { text: "I am sorry to hear that. 🫂", isCorrect: true, feedback: "[Empathy] Great job showing you care!" },
+                            { text: "You are stupid. 😠", isCorrect: false, feedback: "Too mean! Show Empathy first." }
+                        ],
+                        badReaction: "Why are you so mean? You are not helping at all! 😡"
+                    },
+                    {
+                        npc: "Anyway... I still can't sleep. What should I do? 😟",
+                        options: [
+                            { text: "You must not sleep! 🚫", isCorrect: false, feedback: "Don't use 'must'. Give gentle Advice." },
+                            { text: "You should drink warm milk. 🥛", isCorrect: true, feedback: "[Advice] Good and gentle advice!" }
+                        ],
+                        badReaction: "Not sleep? That's a terrible idea! I will be too tired. My mom said I should drink warm milk... 😫" 
+                    },
+                    {
+                        npc: "But why warm milk? Does it really work? ❓",
+                        options: [
+                            { text: "Because it helps you relax. 😌", isCorrect: true, feedback: "[Reason] Excellent logical reason!" },
+                            { text: "Because I like it. 🙄", isCorrect: false, feedback: "Not a good Reason for him." }
+                        ],
+                        badReaction: "That doesn't make sense to me. But I guess I have no other choice, I need to relax... 😔"
+                    },
+                    {
+                        npc: "I guess I will try to rest now. 🥱",
+                        options: [
+                            { text: "Don't worry. You can do it! 💪", isCorrect: true, feedback: "[Encouragement] Perfect positive support!" },
+                            { text: "Bye. Good luck failing. 👋", isCorrect: false, feedback: "Always end with Encouragement!" }
+                        ],
+                        badReaction: "Wow, you are the worst counselor ever! 😭"
+                    }
+                ],
+                wsKeywords: { empathy: "I am sorry to hear that.", advice: "drink warm milk", reason: "helps you relax", encouragement: "You can do it!" }
+            },
+            {
+                name: "Mary",
+                theme: "Parents Disagree 👨‍👩‍👧",
+                badEnding: "Mary is very angry and wants to give up her art dream.",
+                stages: [
+                    {
+                        npc: "My mom says I cannot draw. She wants me to study! 🎨🚫",
+                        options: [
+                            { text: "Just ignore her. 🤫", isCorrect: false, feedback: "Show Empathy first, don't just give advice!" },
+                            { text: "I know how you feel. ❤️", isCorrect: true, feedback: "[Empathy] Beautiful empathy!" }
+                        ],
+                        badReaction: "If I ignore her, she will throw away my paints! You don't get it. 😡"
+                    },
+                    {
+                        npc: "But I really love art. How can I tell her? 🥺",
+                        options: [
+                            { text: "You could show her your drawings. 🖼️", isCorrect: true, feedback: "[Advice] Very constructive advice!" },
+                            { text: "You have to shout at her. 🗣️", isCorrect: false, feedback: "Shouting is bad Advice." }
+                        ],
+                        badReaction: "Shouting will only make her more angry! Maybe I should just show her my drawings instead... 😟"
+                    },
+                    {
+                        npc: "But will showing her my drawings actually work? 🧐",
+                        options: [
+                            { text: "Yes, because parents like hard work. 👀", isCorrect: true, feedback: "[Reason] Great convincing reason!" },
+                            { text: "I don't know. 🤷", isCorrect: false, feedback: "You need to provide a good Reason." }
+                        ],
+                        badReaction: "If you don't know, why are we even talking about it? But I guess she does appreciate hard work... 😭"
+                    },
+                    {
+                        npc: "I will try to talk to her tonight. ✨",
+                        options: [
+                            { text: "I am always here to help. 🥰", isCorrect: true, feedback: "[Encouragement] Sweet and supportive!" },
+                            { text: "Okay, whatever. 😒", isCorrect: false, feedback: "Give her some Encouragement!" }
+                        ],
+                        badReaction: "You don't care about me at all! Goodbye! 😡"
+                    }
+                ],
+                wsKeywords: { empathy: "I know how you feel.", advice: "show her your drawings", reason: "parents like hard work", encouragement: "I am always here to help." }
+            },
+            {
+                name: "Leo",
+                theme: "Friendship Problem 🤝",
+                badEnding: "Leo lost his best friend because of your bad advice!",
+                stages: [
+                    {
+                        npc: "My best friend is angry at me. He is ignoring me! 😭",
+                        options: [
+                            { text: "That must be hard for you. 💔", isCorrect: true, feedback: "[Empathy] Great job validating his feelings!" },
+                            { text: "Find a new friend. 🚶", isCorrect: false, feedback: "Too harsh! Show Empathy." }
+                        ],
+                        badReaction: "He is my BEST friend! I don't want a new one! 😡"
+                    },
+                    {
+                        npc: "I just miss him. What should I do? 😟",
+                        options: [
+                            { text: "You should wait for him to talk. ⏳", isCorrect: false, feedback: "Too passive. Give proactive Advice." },
+                            { text: "You should say sorry first. 🗣️", isCorrect: true, feedback: "[Advice] Brave and helpful advice!" }
+                        ],
+                        badReaction: "Waiting is too scary. What if he never talks to me? My sister told me I should say sorry first... 😭"
+                    },
+                    {
+                        npc: "But why should I say sorry first if I'm not entirely wrong? ❓",
+                        options: [
+                            { text: "Because friends are important. 🌟", isCorrect: true, feedback: "[Reason] Beautiful and true reason!" },
+                            { text: "Because you are wrong. 👉", isCorrect: false, feedback: "Don't blame him! Give a positive Reason." }
+                        ],
+                        badReaction: "You don't even know what happened! Why are you blaming me? ...But I guess losing a friend is worse than being wrong. I should just apologize. 😡"
+                    },
+                    {
+                        npc: "Okay, I will text him now. 📱",
+                        options: [
+                            { text: "Everything will be fine! 🌈", isCorrect: true, feedback: "[Encouragement] Wonderful encouragement!" },
+                            { text: "Hope he doesn't block you. 😬", isCorrect: false, feedback: "Give positive Encouragement, not fear!" }
+                        ],
+                        badReaction: "Now I am too scared to text him! Thanks for nothing. 😭"
+                    }
+                ],
+                wsKeywords: { empathy: "That must be hard for you.", advice: "say sorry first", reason: "friends are important", encouragement: "Everything will be fine!" }
+            },
+            {
+                name: "Anna",
+                theme: "Forgot Homework 📝",
+                badEnding: "Anna is terrified of the teacher now. We need to fix this!",
+                stages: [
+                    {
+                        npc: "I forgot my homework. The teacher will be angry! 😭",
+                        options: [
+                            { text: "It is your fault. 😠", isCorrect: false, feedback: "Don't judge. Show Empathy!" },
+                            { text: "Don't be too sad. 🫂", isCorrect: true, feedback: "[Empathy] Nice and comforting empathy!" }
+                        ],
+                        badReaction: "I know it's my fault, but you don't have to be so mean! 😭"
+                    },
+                    {
+                        npc: "Now I don't know what I should tell the teacher... 😟",
+                        options: [
+                            { text: "You should tell the truth. 🙋‍♀️", isCorrect: true, feedback: "[Advice] Honest and correct advice!" },
+                            { text: "You should lie to her. 🤥", isCorrect: false, feedback: "Lying is bad Advice!" }
+                        ],
+                        badReaction: "If she finds out I lied, I will be in bigger trouble! I think I just have to tell the truth... 😡"
+                    },
+                    {
+                        npc: "But will the teacher forgive me if I tell the truth? 🥺",
+                        options: [
+                            { text: "Yes, because teachers like honest students. 👩‍🏫", isCorrect: true, feedback: "[Reason] Great logical reason!" },
+                            { text: "No, you will be punished. 📏", isCorrect: false, feedback: "Don't scare her. Give a comforting Reason." }
+                        ],
+                        badReaction: "Now I am too scared to go to school! 😭 But hiding won't help... I just have to hope she appreciates honesty."
+                    },
+                    {
+                        npc: "Okay, I will go to the teacher's room now. 🚶‍♀️",
+                        options: [
+                            { text: "Be brave! You can do it! 🦁", isCorrect: true, feedback: "[Encouragement] Strong and empowering!" },
+                            { text: "Good luck. You need it. 🍀", isCorrect: false, feedback: "Use stronger, warmer Encouragement!" }
+                        ],
+                        badReaction: "You are making me more nervous! 😫"
+                    }
+                ],
+                wsKeywords: { empathy: "Don't be too sad.", advice: "tell the truth", reason: "teachers like honest students", encouragement: "Be brave!" }
+            }
+        ];
+
+        // --- State ---
+        let state = {
+            scenarioIdx: 0,
+            stageIdx: 0,
+            messages: [],
+            isTyping: false,
+            showOptions: false,
+            feedback: null, // { type: 'success' | 'error', text: '' }
+            showWorksheetTask: false,
+            gameFinished: false,
+            moodScore: 2,
+            mistakes: [],
+            isFixingPhase: false,
+            currentFixIndex: 0,
+            showBadEnding: false,
+            isShaking: false
+        };
+
+        const appDiv = document.getElementById('app');
+
+        // --- Render Functions ---
+        function render() {
+            if (state.gameFinished) {
+                appDiv.innerHTML = `
+                    <div class="w-full max-w-md bg-white rounded-3xl shadow-xl p-8 text-center space-y-6 fade-in">
+                        ${Icons.Smile}
+                        <h1 class="text-3xl font-bold text-sky-600">All Clients are Happy! 😄</h1>
+                        <p class="text-gray-600">You fixed all the problems and collected all keywords. You are a Master Counselor!</p>
+                        <button onclick="startGame()" class="w-full py-3 bg-sky-500 text-white rounded-xl font-bold hover:bg-sky-600 transition-colors">
+                            Play Again
+                        </button>
+                    </div>
+                `;
+                return;
+            }
+
+            const currentScenario = SCENARIOS[state.scenarioIdx];
+            const currentMood = MOODS[Math.max(0, Math.min(4, state.moodScore))];
+            
+            let clientsHTML = SCENARIOS.map((scen, idx) => `
+                <div class="flex items-center space-x-1 px-2 py-1 rounded-full ${state.scenarioIdx === idx ? 'bg-sky-500 text-white' : state.scenarioIdx > idx ? 'bg-green-500 text-white' : 'bg-slate-700 text-slate-400'}">
+                    ${state.scenarioIdx > idx ? Icons.CheckCircle : Icons.User}
+                    <span>${scen.name}</span>
+                </div>
+            `).join('');
+
+            let messagesHTML = state.messages.map(msg => `
+                <div class="flex ${msg.sender === 'player' ? 'justify-end' : 'justify-start'} fade-in">
+                    <div class="max-w-[85%] p-3 rounded-2xl shadow-sm ${msg.sender === 'player' ? 'bg-sky-500 text-white rounded-tr-none' : 'bg-white text-gray-800 border-2 border-gray-100 rounded-tl-none'}">
+                        <p class="text-lg font-medium">${msg.text}</p>
+                    </div>
+                </div>
+            `).join('');
+
+            let typingHTML = state.isTyping ? `
+                <div class="flex justify-start fade-in" id="typing-indicator">
+                    <div class="bg-white border-2 border-gray-100 p-3 rounded-2xl rounded-tl-none flex space-x-2">
+                        <div class="w-2.5 h-2.5 bg-sky-300 rounded-full typing-dot"></div>
+                        <div class="w-2.5 h-2.5 bg-sky-300 rounded-full typing-dot"></div>
+                        <div class="w-2.5 h-2.5 bg-sky-300 rounded-full typing-dot"></div>
+                    </div>
+                </div>
+            ` : '';
+
+            let badEndingHTML = state.showBadEnding ? `
+                <div class="bg-red-50 border-2 border-red-400 p-5 rounded-2xl text-center shadow-lg my-2 fade-in">
+                    ${Icons.Frown}
+                    <h3 class="font-bold text-red-800 text-xl mb-2">Oh no! Bad Outcome!</h3>
+                    <p class="text-sm text-red-700 mb-4">${currentScenario.badEnding}</p>
+                    <p class="text-xs text-red-600 font-bold mb-4">You made ${state.mistakes.length} mistake(s). Let's rewind and fix them!</p>
+                    <button onclick="startFixingPhase()" class="w-full py-3 bg-red-500 text-white font-bold rounded-xl hover:bg-red-600 shadow-md flex justify-center items-center space-x-2 transition-colors">
+                        ${Icons.RotateCcw}
+                        <span>Fix My Mistakes</span>
+                    </button>
+                </div>
+            ` : '';
+
+            let worksheetHTML = state.showWorksheetTask ? `
+                <div class="bg-green-50 border-2 border-green-400 p-4 rounded-2xl text-center shadow-lg my-2 fade-in">
+                    ${Icons.BookOpen}
+                    <h3 class="font-bold text-green-800 text-lg mb-1">Client Saved! 😄</h3>
+                    <p class="text-xs text-green-700 mb-3">Copy these keywords to your <b>Counselor Logbook</b>:</p>
+                    
+                    <div class="space-y-2 text-left bg-white p-3 rounded-lg border border-green-200 mb-4 text-sm">
+                        <div class="flex flex-col">
+                            <span class="text-gray-500 font-bold text-xs uppercase">1. Empathy:</span>
+                            <span class="text-sky-700 font-mono font-bold border-b border-dashed border-sky-300 pb-1">${currentScenario.wsKeywords.empathy}</span>
+                        </div>
+                        <div class="flex flex-col">
+                            <span class="text-gray-500 font-bold text-xs uppercase">2. Advice:</span>
+                            <span class="text-sky-700 font-mono font-bold border-b border-dashed border-sky-300 pb-1">${currentScenario.wsKeywords.advice}</span>
+                        </div>
+                        <div class="flex flex-col">
+                            <span class="text-gray-500 font-bold text-xs uppercase">3. Reason:</span>
+                            <span class="text-sky-700 font-mono font-bold border-b border-dashed border-sky-300 pb-1">${currentScenario.wsKeywords.reason}</span>
+                        </div>
+                        <div class="flex flex-col">
+                            <span class="text-gray-500 font-bold text-xs uppercase">4. Encouragement:</span>
+                            <span class="text-sky-700 font-mono font-bold border-b border-dashed border-sky-300 pb-1">${currentScenario.wsKeywords.encouragement}</span>
+                        </div>
+                    </div>
+
+                    <button onclick="handleNextScenario()" class="w-full py-3 bg-green-500 text-white font-bold rounded-xl hover:bg-green-600 shadow-md transition-colors">
+                        I finished my logbook! ➔
+                    </button>
+                </div>
+            ` : '';
+
+            let feedbackHTML = state.feedback ? `
+                <div class="mx-4 mb-2 p-3 rounded-xl flex items-center space-x-3 text-sm font-bold shadow-lg z-10 fade-in ${state.feedback.type === 'success' ? 'bg-green-100 text-green-700 border-2 border-green-300' : 'bg-red-100 text-red-700 border-2 border-red-300'}">
+                    ${state.feedback.type === 'success' ? Icons.CheckCircleLarge : Icons.AlertTriangle}
+                    <p>${state.feedback.text}</p>
+                </div>
+            ` : '';
+
+            let optionsHTML = '';
+            if (state.isFixingPhase && state.showOptions && !state.showWorksheetTask) {
+                optionsHTML += `
+                    <div class="text-center mb-2 text-yellow-600 font-bold text-sm flex items-center justify-center space-x-1 fade-in">
+                        ${Icons.RotateCcwSmall}
+                        <span>Fixing Mistake ${state.currentFixIndex + 1} of ${state.mistakes.length}</span>
+                    </div>
+                `;
+            }
+
+            if (!state.showWorksheetTask && !state.showBadEnding && state.showOptions) {
+                const currentStageOptions = state.isFixingPhase 
+                    ? currentScenario.stages[state.mistakes[state.currentFixIndex]].options 
+                    : currentScenario.stages[state.stageIdx]?.options || [];
+                
+                optionsHTML += `<div class="space-y-3 fade-in">`;
+                currentStageOptions.forEach((option, idx) => {
+                    const btnClass = state.isFixingPhase 
+                        ? 'border-yellow-200 hover:border-yellow-400 hover:bg-yellow-100' 
+                        : 'border-sky-100 hover:border-sky-400 hover:bg-sky-50';
+                    const iconColor = state.isFixingPhase ? 'text-yellow-400' : 'text-sky-300';
+                    
+                    optionsHTML += `
+                        <button 
+                            onclick="handleOptionClick(${idx})"
+                            ${state.feedback !== null ? 'disabled' : ''}
+                            class="w-full text-left p-4 rounded-2xl border-2 transition-all disabled:opacity-50 text-lg font-bold text-gray-700 flex justify-between items-center ${btnClass}">
+                            <span>${option.text}</span>
+                            <span class="${iconColor}">${Icons.Send}</span>
+                        </button>
+                    `;
+                });
+                optionsHTML += `</div>`;
+            } else if (!state.showWorksheetTask && !state.showBadEnding) {
+                optionsHTML += `
+                    <div class="flex items-center space-x-3 opacity-40">
+                        <div class="flex-1 bg-gray-100 rounded-full py-3 px-5 text-gray-500 font-medium text-center">Thinking...</div>
+                    </div>
+                `;
+            }
+
+            const headerBg = state.moodScore < 2 ? 'bg-red-500' : 'bg-sky-600';
+            const progressBg = state.isFixingPhase ? 'bg-yellow-400' : 'bg-green-400';
+            const progressWidth = state.isFixingPhase ? `${((state.currentFixIndex) / state.mistakes.length) * 100}%` : `${(state.stageIdx / 4) * 100}%`;
+            const bottomBg = state.isFixingPhase ? 'bg-yellow-50' : 'bg-white';
+            const shakeClass = state.isShaking ? 'animate-shake' : '';
+
+            appDiv.innerHTML = `
+                <div class="relative w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col h-[800px] border-4 border-sky-100 ${shakeClass}">
+                    
+                    ${state.isShaking ? '<div class="absolute inset-0 bg-red-600/30 pointer-events-none z-50"></div>' : ''}
+
+                    <div class="bg-slate-800 text-white p-3 flex justify-between items-center text-xs font-bold z-10">
+                        <span class="text-slate-300 uppercase tracking-wider">Clients:</span>
+                        <div class="flex space-x-2">
+                            ${clientsHTML}
+                        </div>
+                    </div>
+
+                    <div class="text-white p-4 shadow-md z-10 relative overflow-hidden transition-colors duration-500 ${headerBg}">
+                        <div class="flex justify-between items-center relative z-10">
+                            <div>
+                                <h1 class="font-bold text-xl flex items-center">
+                                    Client ${state.scenarioIdx + 1}: ${currentScenario.name}
+                                </h1>
+                                <p class="text-white/80 text-sm">${currentScenario.theme}</p>
+                            </div>
+                            
+                            <div class="flex flex-col items-center bg-black/20 p-2 rounded-xl min-w-[60px]">
+                                <span class="text-xs text-white/80 font-bold mb-1">Mood</span>
+                                <div class="text-4xl drop-shadow-md transition-transform duration-300" id="mood-emoji">
+                                    ${currentMood}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="w-full bg-black/20 rounded-full h-2 mt-3 relative z-10">
+                            <div class="h-2 rounded-full transition-all duration-700 ${progressBg}" style="width: ${progressWidth}"></div>
+                        </div>
+                    </div>
+
+                    <div class="flex-1 overflow-y-auto p-4 bg-slate-50 flex flex-col space-y-4 no-scrollbar" id="messages-container">
+                        ${messagesHTML}
+                        ${typingHTML}
+                        ${badEndingHTML}
+                        ${worksheetHTML}
+                    </div>
+
+                    ${feedbackHTML}
+
+                    <div class="border-t-2 border-gray-100 p-4 pb-6 min-h-[180px] flex flex-col justify-center z-10 transition-colors duration-300 ${bottomBg}">
+                        ${optionsHTML}
+                    </div>
+                </div>
+            `;
+
+            // Auto-scroll to bottom
+            const messagesContainer = document.getElementById('messages-container');
+            if (messagesContainer) {
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }
+        }
+
+        // --- Logic Functions ---
+        function setState(newState) {
+            state = { ...state, ...newState };
+            render();
+        }
+
+        function startGame() {
+            setState({ scenarioIdx: 0, gameFinished: false });
+            startScenario(0);
+        }
+
+        function startScenario(sIdx) {
+            setState({
+                stageIdx: 0,
+                messages: [],
+                showWorksheetTask: false,
+                showBadEnding: false,
+                isFixingPhase: false,
+                mistakes: [],
+                moodScore: 2
+            });
+            triggerNPCMessage(sIdx, 0);
+        }
+
+        function triggerNPCMessage(sIdx, stIdx) {
+            setState({ showOptions: false, isTyping: true });
+            setTimeout(() => {
+                const newMessages = [...state.messages, { sender: 'npc', text: SCENARIOS[sIdx].stages[stIdx].npc }];
+                setState({ isTyping: false, messages: newMessages });
+                setTimeout(() => setState({ showOptions: true }), 500);
+            }, 1500);
+        }
+
+        window.handleOptionClick = function(optionIdx) {
+            const currentScenario = SCENARIOS[state.scenarioIdx];
+            const options = state.isFixingPhase 
+                ? currentScenario.stages[state.mistakes[state.currentFixIndex]].options 
+                : currentScenario.stages[state.stageIdx].options;
+            
+            const option = options[optionIdx];
+
+            if (state.isFixingPhase) {
+                handleFixingOptionClick(option);
+                return;
+            }
+
+            const newMessages = [...state.messages, { sender: 'player', text: option.text }];
+            setState({ showOptions: false, messages: newMessages });
+
+            if (option.isCorrect) {
+                setState({ 
+                    moodScore: Math.min(4, state.moodScore + 1),
+                    feedback: { type: 'success', text: option.feedback }
+                });
+                
+                setTimeout(() => {
+                    setState({ feedback: null });
+                    proceedToNextStage();
+                }, 1500);
+            } else {
+                setState({ 
+                    isShaking: true,
+                    moodScore: Math.max(0, state.moodScore - 1),
+                    mistakes: [...state.mistakes, state.stageIdx],
+                    feedback: { type: 'error', text: option.feedback }
+                });
+                
+                setTimeout(() => setState({ isShaking: false }), 400);
+
+                setTimeout(() => {
+                    setState({ feedback: null, isTyping: true });
+                    setTimeout(() => {
+                        const badReactionMsg = { sender: 'npc', text: currentScenario.stages[state.stageIdx].badReaction };
+                        setState({ isTyping: false, messages: [...state.messages, badReactionMsg] });
+                        setTimeout(() => {
+                            proceedToNextStage();
+                        }, 3500);
+                    }, 1000);
+                }, 1500);
+            }
+        };
+
+        function proceedToNextStage() {
+            const currentScenario = SCENARIOS[state.scenarioIdx];
+            if (state.stageIdx + 1 < currentScenario.stages.length) {
+                setState({ stageIdx: state.stageIdx + 1 });
+                triggerNPCMessage(state.scenarioIdx, state.stageIdx);
+            } else {
+                if (state.mistakes.length > 0) {
+                    setState({ showBadEnding: true });
+                } else {
+                    setState({ moodScore: 4, showWorksheetTask: true });
+                }
+            }
+        }
+
+        window.startFixingPhase = function() {
+            setState({
+                showBadEnding: false,
+                isFixingPhase: true,
+                currentFixIndex: 0,
+                messages: []
+            });
+            triggerFixingNPCMessage(0);
+        };
+
+        function triggerFixingNPCMessage(fixIdx) {
+            const currentScenario = SCENARIOS[state.scenarioIdx];
+            const stageToFix = state.mistakes[fixIdx];
+            setState({ showOptions: false, isTyping: true });
+            setTimeout(() => {
+                const newMessages = [...state.messages, { sender: 'npc', text: `(Fixing Step ${stageToFix + 1}) ` + currentScenario.stages[stageToFix].npc }];
+                setState({ isTyping: false, messages: newMessages });
+                setTimeout(() => setState({ showOptions: true }), 500);
+            }, 1000);
+        }
+
+        function handleFixingOptionClick(option) {
+            if (option.isCorrect) {
+                const newMessages = [...state.messages, { sender: 'player', text: option.text }];
+                setState({ 
+                    messages: newMessages,
+                    feedback: { type: 'success', text: "Fixed! " + option.feedback },
+                    moodScore: Math.min(4, state.moodScore + 1),
+                    showOptions: false
+                });
+                
+                setTimeout(() => {
+                    setState({ feedback: null });
+                    if (state.currentFixIndex + 1 < state.mistakes.length) {
+                        setState({ currentFixIndex: state.currentFixIndex + 1 });
+                        triggerFixingNPCMessage(state.currentFixIndex);
+                    } else {
+                        setState({ moodScore: 4, showWorksheetTask: true });
+                    }
+                }, 2000);
+            } else {
+                setState({ 
+                    isShaking: true,
+                    feedback: { type: 'error', text: "Still wrong! Try the other one." }
+                });
+                setTimeout(() => setState({ isShaking: false }), 400);
+                setTimeout(() => setState({ feedback: null }), 2000);
+            }
+        }
+
+        window.handleNextScenario = function() {
+            if (state.scenarioIdx + 1 < SCENARIOS.length) {
+                setState({ scenarioIdx: state.scenarioIdx + 1 });
+                startScenario(state.scenarioIdx);
+            } else {
+                setState({ gameFinished: true });
+            }
+        };
+
+        // Initialize
+        startGame();
+
+    </script>
+</body>
+</html>
